@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   Blocks, 
   Database, 
@@ -6,8 +6,10 @@ import {
   Workflow, 
   MessageSquare, 
   Settings, 
-  ChevronRight 
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const navigation = [
   { name: 'Functional', href: '/functional', icon: Blocks },
@@ -17,6 +19,14 @@ const navigation = [
 ];
 
 export function Sidebar() {
+  const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="flex flex-col w-64 h-screen bg-gray-50 border-r border-gray-200">
       {/* Profile Section */}
@@ -87,8 +97,8 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* Bottom Settings */}
-      <div className="p-4 border-t border-gray-200">
+      {/* Bottom Settings & Logout */}
+      <div className="p-4 border-t border-gray-200 flex flex-col space-y-1">
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -102,6 +112,14 @@ export function Sidebar() {
           <Settings className="w-4 h-4 mr-3 flex-shrink-0" />
           Settings
         </NavLink>
+        
+        <button
+          onClick={handleLogout}
+          className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-red-50 hover:text-red-600 transition-colors text-left"
+        >
+          <LogOut className="w-4 h-4 mr-3 flex-shrink-0" />
+          Log out
+        </button>
       </div>
     </div>
   );
