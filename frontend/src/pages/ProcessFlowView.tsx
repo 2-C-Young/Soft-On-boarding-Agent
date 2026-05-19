@@ -69,7 +69,7 @@ const getStatusIcon = (status: IssueStatus) => {
     }
 };
 
-export default function ProcessFlowView() {
+export function ProcessFlowView() {
     const [selectedReleaseId, setSelectedReleaseId] = useState<number>(dummyReleases[2].id);
     const [selectedRole, setSelectedRole] = useState<'All' | RoleType>('All');
 
