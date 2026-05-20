@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { userApi } from '../services/userApi';
 
-const GITHUB_LOGIN_URL = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/github`;
+const GITHUB_LOGIN_URL = `${import.meta.env.VITE_BACKEND_BASE_URL}/oauth2/authorization/github`;
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg
@@ -35,7 +35,7 @@ export function LoginPage() {
       try {
         const userProfile = await userApi.getMe(authToken);
         login(authToken, { teamCode: userProfile.teamCode });
-        
+
         if (userProfile.teamCode) {
           navigate('/functional', { replace: true });
         } else {

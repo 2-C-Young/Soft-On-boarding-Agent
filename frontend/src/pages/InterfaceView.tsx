@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   Folder, FileCode2, Palette, Box, Search,
   ChevronDown, ChevronRight, BookOpen, GitCommit, GitPullRequest, Clock
 } from 'lucide-react';
+import { ComponentDrawer } from '../components/interface/ComponentDrawer';
 
 // Custom FigmaIcon inline component to avoid old lucide-react export issues
 const FigmaIcon = ({ className }: { className?: string }) => (
@@ -49,6 +50,8 @@ const ColorSwatch = ({ name, hex, bgClass, borderClass = 'border-gray-200' }: { 
 
 export function InterfaceView() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
     dashboard: true,
@@ -59,6 +62,11 @@ export function InterfaceView() {
   const toggleFolder = (folder: string) => {
     setOpenFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
   };
+
+  const handleComponentClick = useCallback((name: string) => {
+    setSelectedComponent(name);
+    setDrawerOpen(true);
+  }, []);
 
   const componentsData = [
     {
@@ -363,9 +371,18 @@ export function InterfaceView() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-px bg-gray-200">
             {filteredComponents.length > 0 ? (
               filteredComponents.map((comp) => (
-                <div key={comp.id} className="flex flex-col bg-[#FAFAFA]">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
+                <div key={comp.id} className="flex flex-col bg-[#FAFAFA] group/card">
+                  <div
+                    id={`component-card-${comp.id}`}
+                    className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => handleComponentClick(comp.name)}
+                    title={`${comp.name} Figma/Storybook 연동 보기`}
+                  >
                     <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">{comp.name}</span>
+                    <span className="text-[9px] text-gray-400 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />
+                      Figma / Storybook 보기
+                    </span>
                   </div>
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Preview */}
@@ -403,6 +420,13 @@ export function InterfaceView() {
           </div>
         </div>
       </div>
+
+      {/* Component Detail Drawer */}
+      <ComponentDrawer
+        componentName={selectedComponent}
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   );
 }
