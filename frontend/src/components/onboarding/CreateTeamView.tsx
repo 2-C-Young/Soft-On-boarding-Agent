@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { spaceApi } from '../../services/spaceApi';
+import { useAuthStore } from '../../store/authStore';
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg
@@ -24,31 +26,58 @@ interface CreateTeamViewProps {
 }
 
 export function CreateTeamView({ onViewChange }: CreateTeamViewProps) {
+  const [teamName, setTeamName] = useState('');
   const [repoUrl, setRepoUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const setTeamCode = useAuthStore((state) => state.setTeamCode);
 
-  const handleCreate = () => {
-    if (repoUrl) {
+  const handleCreate = async () => {
+    if (!teamName || !repoUrl) return;
+    
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await spaceApi.createSpace({ name: teamName, repoUrl });
+      setTeamCode(response.teamCode);
       onViewChange('analyzing');
+    } catch (error: any) {
+      setErrorMsg(error.message || '오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="flex flex-col h-full flex-1 animate-fade-in-right">
-      <div className="mb-8">
+      <div className="mb-6">
         <button 
           onClick={() => onViewChange('join')}
-          className="flex items-center text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors"
+          className="flex items-center text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           <span>뒤로 가기</span>
         </button>
         <h2 className="text-xl font-medium text-gray-900 mb-2">Create New Space</h2>
-        <p className="text-sm text-gray-500">분석할 GitHub 레포지토리 URL을 입력하세요.</p>
+        <p className="text-sm text-gray-500">분석할 GitHub 레포지토리 정보와 스페이스 이름을 입력하세요.</p>
       </div>
 
-      <div className="space-y-6 flex-1">
+      <div className="space-y-4 flex-1">
         <div>
-          <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Space Name
+          </label>
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            placeholder="e.g. My Awesome Project"
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="flex items-center text-sm font-medium text-gray-700 mb-1">
             <GithubIcon className="w-4 h-4 mr-2" />
             Repository URL
           </label>
@@ -60,16 +89,24 @@ export function CreateTeamView({ onViewChange }: CreateTeamViewProps) {
             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-colors"
           />
         </div>
+        
+        {errorMsg && (
+          <p className="text-sm text-red-500 font-medium animate-fade-in-up">{errorMsg}</p>
+        )}
       </div>
 
-      <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col space-y-4">
+      <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col space-y-4">
         <button
           onClick={handleCreate}
-          disabled={!repoUrl}
+          disabled={!teamName || !repoUrl || isLoading}
           className="w-full flex items-center justify-center space-x-2 bg-gray-900 text-white px-4 py-3 rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
         >
-          <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
-          <span>생성 및 분석 시작</span>
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
+          )}
+          <span>{isLoading ? '생성 중...' : '생성 및 분석 시작'}</span>
         </button>
       </div>
     </div>

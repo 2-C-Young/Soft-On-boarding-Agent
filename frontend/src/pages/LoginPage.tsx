@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { userApi } from '../services/userApi';
+import { Loader2 } from 'lucide-react';
 
 const GITHUB_LOGIN_URL = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/github`;
 
@@ -25,23 +27,45 @@ const GithubIcon = ({ className }: { className?: string }) => (
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const login = useAuthStore((state) => state.login);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { login, isAuthenticated, user } = useAuthStore();
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
-    // 백엔드가 리다이렉트한 URL에서 JWT 토큰 추출: /login?token=xxxx
     const token = searchParams.get('token');
+
+    const verifyAndRedirect = async (authToken: string) => {
+      setIsVerifying(true);
+      try {
+        const userProfile = await userApi.getMe(authToken);
+        login(authToken, { teamCode: userProfile.teamCode });
+        
+        if (userProfile.teamCode) {
+          navigate('/functional', { replace: true });
+        } else {
+          navigate('/onboarding', { replace: true });
+        }
+      } catch (error) {
+        console.error('Failed to verify user:', error);
+        login(authToken, { teamCode: null });
+        navigate('/onboarding', { replace: true });
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
     if (token) {
-      login(token);
-      navigate('/onboarding', { replace: true });
+      verifyAndRedirect(token);
       return;
     }
 
-    // 이미 로그인 상태라면 바로 메인으로
     if (isAuthenticated) {
-      navigate('/functional', { replace: true });
+      if (user?.teamCode) {
+        navigate('/functional', { replace: true });
+      } else {
+        navigate('/onboarding', { replace: true });
+      }
     }
-  }, [searchParams, login, navigate, isAuthenticated]);
+  }, [searchParams, login, navigate, isAuthenticated, user]);
 
   const handleLogin = () => {
     // 실제 GitHub OAuth 로그인 시작 (백엔드로 리다이렉트)

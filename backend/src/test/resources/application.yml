@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: false
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test-client-id
+            client-secret: test-client-secret
+            scope:
+              - read:user
+              - user:email
+              - repo
+
+app:
+  github:
+    api-url: https://api.github.com
+  llm:
+    api-url: ""
+    api-key: ""
+  oauth2:
+    authorized-redirect-uris: http://localhost:5173/login
+  jwt:
+    secret: testSecretKeyForJwtTokenProviderAtLeast64CharactersLong12345678901234
+    expiration-time: 86400000
