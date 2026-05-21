@@ -34,16 +34,22 @@ export function LoginPage() {
     const verifyAndRedirect = async (authToken: string) => {
       try {
         const userProfile = await userApi.getMe(authToken);
-        login(authToken, { teamCode: userProfile.teamCode });
 
         if (userProfile.teamCode) {
+          // 이미 팀이 있으면 profile도 조회해서 spaceId까지 저장
+          const profile = await userApi.getProfile(authToken);
+          login(authToken, {
+            teamCode: userProfile.teamCode,
+            spaceId: profile.teamInfo?.spaceId ?? null,
+          });
           navigate('/functional', { replace: true });
         } else {
+          login(authToken, { teamCode: null, spaceId: null });
           navigate('/onboarding', { replace: true });
         }
       } catch (error) {
         console.error('Failed to verify user:', error);
-        login(authToken, { teamCode: null });
+        login(authToken, { teamCode: null, spaceId: null });
         navigate('/onboarding', { replace: true });
       }
     };

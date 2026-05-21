@@ -11,7 +11,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useQuery } from '@tanstack/react-query';
 import { functionalViewApi, type FunctionalNodeData } from '../services/functionalViewApi';
-import { userApi } from '../services/userApi';
+import { useAuthStore } from '../store/authStore';
 import { mockFunctionalViewData } from '../mocks/functionalViewMock';
 
 import { ForestNode } from '../components/diagram/ForestNode';
@@ -43,14 +43,9 @@ export default function FunctionalView() {
   const MOCK_SPACE_ID = 999;
   // ─────────────────────────────────────────────────────────────────
 
-  // 1. User Profile 조회하여 spaceId 획득
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ['userProfile'],
-    queryFn: userApi.getProfile,
-    enabled: !MOCK_MODE, // Mock 모드에서는 API 호출 안 함
-  });
-
-  const spaceId = MOCK_MODE ? MOCK_SPACE_ID : (profile?.teamInfo?.spaceId ?? null);
+  // 1. authStore에서 spaceId 직접 읽기 (API 추가 호출 불필요)
+  const storeSpaceId = useAuthStore((state) => state.user?.spaceId ?? null);
+  const spaceId = MOCK_MODE ? MOCK_SPACE_ID : storeSpaceId;
 
   // 2. spaceId로 Functional View 데이터 조회
   const { data: apiData, isLoading: isApiLoading, error } = useQuery({
@@ -132,7 +127,7 @@ export default function FunctionalView() {
     setIsDrawerOpen(true);
   }, []);
 
-  if (!MOCK_MODE && (isProfileLoading || (spaceId && isApiLoading))) {
+  if (!MOCK_MODE && (spaceId && isApiLoading)) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">

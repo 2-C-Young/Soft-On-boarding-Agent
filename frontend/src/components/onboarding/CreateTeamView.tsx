@@ -34,6 +34,7 @@ export function CreateTeamView({ onViewChange }: CreateTeamViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const setTeamCode = useAuthStore((state) => state.setTeamCode);
+  const setSpaceId = useAuthStore((state) => state.setSpaceId);
 
   const handleCreate = async () => {
     if (!teamName || !repoUrl || !selectedRole) return;
@@ -43,6 +44,7 @@ export function CreateTeamView({ onViewChange }: CreateTeamViewProps) {
     try {
       const response = await spaceApi.createSpace({ name: teamName, repoUrl, jobRole: selectedRole });
       setTeamCode(response.teamCode);
+      setSpaceId(response.spaceId); // createSpace 응답에 spaceId 포함
       onViewChange('analyzing');
     } catch (error: any) {
       setErrorMsg(error.message || '오류가 발생했습니다.');

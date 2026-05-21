@@ -8,6 +8,7 @@ import { Copy, Check, Link as LinkIcon, User, Mail, Briefcase, AlertTriangle } f
 export function SettingsView() {
   const navigate = useNavigate();
   const setTeamCode = useAuthStore((state) => state.setTeamCode);
+  const setSpaceId = useAuthStore((state) => state.setSpaceId);
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -41,6 +42,7 @@ export function SettingsView() {
     try {
       await spaceApi.leaveSpace();
       setTeamCode(null);
+      setSpaceId(null); // 탈퇴 시 spaceId 초기화
       navigate('/');
     } catch (error) {
       console.error('Failed to leave team', error);

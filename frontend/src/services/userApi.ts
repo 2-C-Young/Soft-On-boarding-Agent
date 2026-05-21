@@ -52,10 +52,14 @@ export const userApi = {
     return response.json();
   },
 
-  getProfile: async (): Promise<UserProfileResponse> => {
+  getProfile: async (token?: string): Promise<UserProfileResponse> => {
+    const headers = token
+      ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      : getAuthHeaders();
+
     const response = await fetch(`${API_BASE_URL}/api/users/me/profile`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers,
     });
 
     if (!response.ok) {

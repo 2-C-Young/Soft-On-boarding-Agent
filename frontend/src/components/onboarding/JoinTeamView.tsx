@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { spaceApi } from '../../services/spaceApi';
+import { userApi } from '../../services/userApi';
 import { useAuthStore } from '../../store/authStore';
 
 interface JoinTeamViewProps {
@@ -17,6 +18,7 @@ export function JoinTeamView({ onViewChange }: JoinTeamViewProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
   const setTeamCode = useAuthStore((state) => state.setTeamCode);
+  const setSpaceId = useAuthStore((state) => state.setSpaceId);
 
   const handleJoin = async () => {
     if (!teamCode || !selectedRole) return;
@@ -25,7 +27,10 @@ export function JoinTeamView({ onViewChange }: JoinTeamViewProps) {
     setErrorMsg('');
     try {
       await spaceApi.joinSpace(teamCode, selectedRole);
+      // joinSpace는 void 반환이므로 profile 재조회로 spaceId 획득
+      const profile = await userApi.getProfile();
       setTeamCode(teamCode);
+      setSpaceId(profile.teamInfo?.spaceId ?? null);
       // 백엔드 합류 성공 후 직무 기반 메인뷰로 이동
       navigate('/functional');
     } catch (error: any) {
