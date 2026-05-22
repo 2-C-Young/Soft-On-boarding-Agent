@@ -9,6 +9,8 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
 
+import org.springframework.scheduling.annotation.Async;
+
 /**
  * GithubAnalysisService의 임시 Stub 구현체.
  * 팀원의 실제 구현이 완료되면 이 클래스를 제거하거나 @Primary를 제거합니다.
@@ -18,9 +20,10 @@ import java.nio.file.Paths;
 @Primary
 public class GithubAnalysisServiceStub implements GithubAnalysisService {
 
+    @Async
     @Override
     public void analyzeAndSaveProjectStructure(Long spaceId, String repoUrl) {
-        log.info("[GithubAnalysisService STUB] 동기(Synchronous) 분석 호출됨 - spaceId: {}, repoUrl: {}", spaceId, repoUrl);
+        log.info("[GithubAnalysisService STUB] 비동기(Asynchronous) 분석 호출됨 - spaceId: {}, repoUrl: {}", spaceId, repoUrl);
 
         try {
             // 프로젝트 루트 기준 LLM-Pipeline 경로 설정 (백엔드 실행 위치에 따라 다를 수 있음)
