@@ -75,4 +75,40 @@ export const userApi = {
 
     return data;
   },
+
+  /**
+   * DB의 최신 유저/팀 정보를 가져와 Zustand authStore(localStorage)를 동기화합니다.
+   * 로컬 상태가 꼬여서(예: DB엔 팀이 있는데 프론트엔드는 모를 때) 발생하는 라우팅 버그를 방지합니다.
+   */
+  syncUser: async (): Promise<void> => {
+    const { token, login } = useAuthStore.getState();
+    if (!token) return;
+
+    try {
+      // 1. 유저 기본 정보(teamCode 확인)
+      const userProfile = await userApi.getMe(token);
+
+      if (userProfile.teamCode) {
+        try {
+          // 2. 팀 코드가 있다면 상세 프로필(spaceId, isAdmin 등)까지 조회
+          const profile = await userApi.getProfile();
+          login(token, {
+            teamCode: userProfile.teamCode,
+            spaceId: profile.teamInfo?.spaceId ?? null,
+            isAdmin: profile.teamInfo?.isAdmin ?? false,
+          });
+        } catch (profileError) {
+          // 프로필 상세 조회 실패 시 최소 정보라도 동기화
+          login(token, { teamCode: userProfile.teamCode, spaceId: null, isAdmin: false });
+          throw profileError;
+        }
+      } else {
+        // 3. 팀 코드가 없으면 없는 상태로 확실하게 동기화
+        login(token, { teamCode: null, spaceId: null, isAdmin: false });
+      }
+    } catch (error) {
+      console.warn('[userApi.syncUser] 유저 동기화 실패:', error);
+      throw error;
+    }
+  },
 };

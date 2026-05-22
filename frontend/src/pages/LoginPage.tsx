@@ -35,20 +35,17 @@ export function LoginPage() {
 
     const verifyAndRedirect = async (authToken: string) => {
       try {
-        const userProfile = await userApi.getMe(authToken);
-        login(authToken, { teamCode: userProfile.teamCode, spaceId: null, isAdmin: false });
+        // 1. 초기 임시 토큰 셋업 (apiFetch가 헤더에 실어보낼 수 있도록)
+        login(authToken, { teamCode: null, spaceId: null, isAdmin: false });
         
-        if (userProfile.teamCode) {
-          // 이미 팀이 있으면 profile도 조회해서 spaceId까지 저장
-          const profile = await userApi.getProfile();
-          login(authToken, {
-            teamCode: userProfile.teamCode,
-            spaceId: profile.teamInfo?.spaceId ?? null,
-            isAdmin: profile.teamInfo?.isAdmin ?? false,
-          });
+        // 2. 서버와 완벽 동기화 (syncUser 내부에서 최신 teamCode, spaceId 등을 authStore에 덮어씀)
+        await userApi.syncUser();
+        
+        // 3. 최신화된 상태를 읽어서 라우팅
+        const { user } = useAuthStore.getState();
+        if (user?.teamCode) {
           navigate('/functional', { replace: true });
         } else {
-          login(authToken, { teamCode: null, spaceId: null, isAdmin: false });
           navigate('/onboarding', { replace: true });
         }
       } catch (error) {

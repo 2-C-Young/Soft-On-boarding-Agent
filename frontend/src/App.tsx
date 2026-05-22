@@ -50,11 +50,11 @@ function App() {
 
   useEffect(() => {
     // 앱이 로드될 때(새로고침 등), 로컬 스토리지상 인증되어 있다면 
-    // 백엔드에 핑을 보내서 실제 토큰이 아직 유효한지(혹은 DB 초기화로 유저가 날아갔는지) 검증
+    // 백엔드에 핑을 보내서 실제 DB와 프론트엔드의 상태(teamCode 등)를 완벽 동기화
     if (isAuthenticated) {
-      userApi.getMe().catch(() => {
+      userApi.syncUser().catch(() => {
         // apiFetch 인터셉터가 401을 감지하고 자동으로 로그아웃/리다이렉트 처리함
-        console.warn('Silent token validation failed.');
+        console.warn('Silent token validation & sync failed.');
       });
     }
   }, [isAuthenticated]);
