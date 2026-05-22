@@ -38,7 +38,7 @@ app:
     api-url: 
     api-key: 
   oauth2:
-    authorized-redirect-uris: http://localhost:5173/login
+    authorized-redirect-uris: ${APP_OAUTH2_REDIRECT_URI:http://localhost:5173/login}
   jwt:
     secret: ${JWT_SECRET:YOUR_JWT_SECRET_HERE}
     expiration-time: 86400000

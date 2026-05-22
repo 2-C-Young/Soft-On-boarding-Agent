@@ -16,6 +16,7 @@ services:
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GITHUB_SYSTEM_TOKEN=${GITHUB_SYSTEM_TOKEN}
       - JWT_SECRET=${JWT_SECRET}
+      - APP_OAUTH2_REDIRECT_URI=/login
     env_file:
       - ./backend/.env # Or map global variables here
     networks:
