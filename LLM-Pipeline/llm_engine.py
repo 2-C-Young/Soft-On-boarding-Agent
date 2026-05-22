@@ -51,7 +51,7 @@ def categorize_files_with_gemini(file_paths):
             
         if any(kw in lower_path for kw in ['components', 'pages', 'views', 'ui', 'styles', 'css', 'tailwind', '.jsx', '.tsx', 'router']):
             categorized["Interface"].append(path)
-        elif any(kw in lower_path for kw in ['entity', 'schema', 'prisma', 'sql', 'ddl', 'models', 'migrations']):
+        elif any(kw in lower_path for kw in ['entity', 'domain', 'dto', 'schema', 'prisma', 'sql', 'ddl', 'models', 'migrations']):
             categorized["Data"].append(path)
         elif any(kw in lower_path for kw in ['.github', 'workflows', 'docker', 'build.gradle', 'pom.xml', 'package.json', 'Makefile', 'ci', 'cd']):
             categorized["Process"].append(path)

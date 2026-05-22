@@ -1,5 +1,5 @@
-import { useMemo, useEffect } from 'react';
-import axios from 'axios';
+import { useMemo, useEffect, useState } from 'react';
+import { apiFetch } from '../services/apiClient';
 import ReactFlow, {
   Background,
   Controls,
@@ -101,94 +101,127 @@ const CustomEdge = ({
 };
 
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  
-  // TB: Top to Bottom (수직 레이아웃), 노드와 랭크(계층) 간격 설정
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120, align: 'UL' });
-
-  nodes.forEach((node) => {
-    const width = 288; // w-72는 288px
-    const columnsCount = node.data?.columns?.length || 0;
-    const height = 70 + columnsCount * 32; // 헤더 영역 + 컬럼 행 높이 합산
-    dagreGraph.setNode(node.id, { width, height });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    const width = 288;
-    const columnsCount = node.data?.columns?.length || 0;
-    const height = 70 + columnsCount * 32;
+  try {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
     
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - width / 2,
-        y: nodeWithPosition.y - height / 2,
-      },
-    };
-  });
+    // TB: Top to Bottom (수직 레이아웃), 노드와 랭크(계층) 간격 설정
+    dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120, align: 'UL' });
 
-  return { nodes: layoutedNodes, edges };
+    nodes.forEach((node) => {
+      const width = 288; // w-72는 288px
+      const columnsCount = node.data?.columns?.length || 0;
+      const height = 70 + columnsCount * 32; // 헤더 영역 + 컬럼 행 높이 합산
+      dagreGraph.setNode(node.id, { width, height });
+    });
+
+    edges.forEach((edge) => {
+      if (edge.source && edge.target) {
+        dagreGraph.setEdge(edge.source, edge.target);
+      }
+    });
+
+    dagre.layout(dagreGraph);
+
+    const layoutedNodes = nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      if (!nodeWithPosition) return node; // 레이아웃 계산 실패 시 원본 반환
+      
+      const width = 288;
+      const columnsCount = node.data?.columns?.length || 0;
+      const height = 70 + columnsCount * 32;
+      
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - width / 2,
+          y: nodeWithPosition.y - height / 2,
+        },
+      };
+    });
+
+    return { nodes: layoutedNodes, edges };
+  } catch (error) {
+    console.error("Dagre 레이아웃 계산 실패, 원본 위치를 유지합니다.", error);
+    return { nodes, edges };
+  }
 };
 
-export function DataView() {
-  const nodeTypes = useMemo(() => ({ tableNode: TableNode }), []);
-  const edgeTypes = useMemo(() => ({ customEdge: CustomEdge }), []);
 
+const nodeTypes = { tableNode: TableNode };
+const edgeTypes = { customEdge: CustomEdge };
+
+export function DataView() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
     const fetchSchemaData = async () => {
-      if (!user?.spaceId || !token) return;
+      if (!user?.spaceId) return;
 
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-
-        const response = await axios.get(
-          `${API_BASE}/api/spaces/${user.spaceId}/data-view/schema`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-
-        if (response.data) {
-          const rawNodes = response.data.nodes || [];
-          const rawEdges = response.data.edges || [];
+        setIsLoading(true);
+        const response = await apiFetch(`/api/spaces/${user.spaceId}/data-view/schema`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const rawNodes = data.nodes || [];
+          const rawEdges = data.edges || [];
           
-          if (rawNodes.length > 0) {
-            const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(rawNodes, rawEdges);
+          // 중복 id를 가진 노드와 엣지를 제거하여 React Flow 키 충돌 방지
+          const uniqueNodes = Array.from(new Map(rawNodes.map((n: any) => [n.id, n])).values());
+          const uniqueEdges = Array.from(new Map(rawEdges.map((e: any) => [e.id, e])).values());
+          
+          if (uniqueNodes.length > 0) {
+            const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(uniqueNodes, uniqueEdges);
             setNodes(layoutedNodes);
             setEdges(layoutedEdges);
           } else {
             setNodes([]);
             setEdges([]);
           }
+        } else {
+            console.error("Schema fetch returned non-ok status:", response.status);
+            setNodes([]);
+            setEdges([]);
         }
       } catch (error) {
-        console.error("백엔드 API 호출 실패, 기본 더미 데이터를 유지합니다.", error);
+        console.error("백엔드 API 호출 실패:", error);
+        setNodes([]);
+        setEdges([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchSchemaData();
-  }, [user?.spaceId, token, setNodes, setEdges]);
+  }, [user?.spaceId, setNodes, setEdges]);
 
   return (
     <div className="w-full h-full relative overflow-hidden flex">
       {/* Main Diagram Area with React Flow */}
-      <div className="flex-1 relative w-full h-full">
+      <div className="flex-1 relative w-full h-full bg-[#FAFAFA]">
+        {isLoading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/50 backdrop-blur-sm">
+            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 text-gray-600 font-medium">데이터 모델을 불러오는 중입니다...</p>
+          </div>
+        ) : nodes.length === 0 ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Database className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">데이터 모델이 없습니다</h3>
+            <p className="text-gray-500 max-w-md text-center">
+              아직 데이터베이스 스키마 정보가 분석되지 않았거나, 파일에서 데이터 모델을 찾을 수 없습니다. LLM 파이프라인에서 데이터 분석이 완료되었는지 확인해주세요.
+            </p>
+          </div>
+        ) : null}
+
         <ReactFlow
           nodes={nodes}
           edges={edges}

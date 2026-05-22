@@ -1,5 +1,6 @@
 package com.vector.onboarding.domain.dataview.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vector.onboarding.domain.dataview.entity.DataView;
 import com.vector.onboarding.domain.dataview.entity.SchemaAnalysisResult;
@@ -38,18 +39,26 @@ public class DataViewService {
         String repositoryUrl = space.getRepoUrl();
 
         List<DataView> dataViews = dataViewRepository.findAllBySpaceId(spaceId);
-        
-        if (dataViews.isEmpty()) {
-            log.warn("DB에 데이터(DataView)가 없습니다. spaceId: {}, repositoryUrl: {}", spaceId, repositoryUrl);
+
+        Set<String> uniqueFilePaths = new HashSet<>();
+
+        for (DataView dataView : dataViews) {
+            String filePath = dataView.getFilePath();
+            if (filePath != null && !filePath.isEmpty()) {
+                uniqueFilePaths.add(filePath);
+            }
+        }
+
+        Set<String> entityFiles = getAllEntityFilesFromGithub(repositoryUrl);
+        uniqueFilePaths.addAll(entityFiles);
+
+        if (uniqueFilePaths.isEmpty()) {
+            log.warn("DB에 분석 대상 파일(DataView)이 없습니다. spaceId: {}, repositoryUrl: {}", spaceId, repositoryUrl);
             return "{ \"nodes\": [], \"edges\": [] }";
         }
 
         // 각 파일별 캐시를 검사하고 미분석된 파일은 온디맨드로 즉시 파싱 (안전 장치)
-        for (DataView dataView : dataViews) {
-            String filePath = dataView.getFilePath();
-            if (filePath == null || filePath.isEmpty()) {
-                continue;
-            }
+        for (String filePath : uniqueFilePaths) {
 
             Optional<SchemaAnalysisResult> cached = schemaAnalysisResultRepository.findBySpaceIdAndFilePath(spaceId, filePath);
             boolean needsAnalysis = true;
@@ -124,9 +133,20 @@ public class DataViewService {
         }
 
         List<DataView> dataViews = dataViewRepository.findAllBySpaceId(spaceId);
+
+        Set<String> uniqueFilePaths = new HashSet<>();
+
         for (DataView dataView : dataViews) {
             String filePath = dataView.getFilePath();
-            if (filePath == null || filePath.isEmpty()) continue;
+            if (filePath != null && !filePath.isEmpty()) {
+                uniqueFilePaths.add(filePath);
+            }
+        }
+
+        Set<String> entityFiles = getAllEntityFilesFromGithub(repositoryUrl);
+        uniqueFilePaths.addAll(entityFiles);
+
+        for (String filePath : uniqueFilePaths) {
 
             Optional<SchemaAnalysisResult> cached = schemaAnalysisResultRepository.findBySpaceIdAndFilePath(spaceId, filePath);
             boolean needsAnalysis = true;
@@ -214,6 +234,71 @@ public class DataViewService {
             log.error("병합 데이터 직렬화 실패", e);
             return "{ \"nodes\": [], \"edges\": [] }";
         }
+    }
+
+    /**
+     * GitHub Git Tree API를 사용하여 레포지토리의 전체 파일 경로를 가져온 뒤,
+     * 엔티티/도메인 또는 POJO 데이터 모델 파일들을 휴리스틱으로 찾아냅니다.
+     */
+    private Set<String> getAllEntityFilesFromGithub(String repositoryUrl) {
+        Set<String> paths = new HashSet<>();
+        try {
+            String urlPath = repositoryUrl.replace("https://github.com/", "").replace(".git", "");
+            String[] parts = urlPath.split("/");
+            if (parts.length < 2) return paths;
+            String owner = parts[0];
+            String repo = parts[1];
+
+            // 1. main 브랜치 시도, 실패 시 master 브랜치 시도
+            JsonNode tree = null;
+            try {
+                tree = githubFileFetchService.fetchGitTree(owner, repo, "main");
+            } catch(Exception e) {
+                try {
+                    tree = githubFileFetchService.fetchGitTree(owner, repo, "master");
+                } catch(Exception e2) {
+                    log.error("GitHub Tree fetch 실패 (main, master 모두 실패): {}/{}", owner, repo);
+                    return paths;
+                }
+            }
+
+            // 2. 도메인/엔티티/POJO 휴리스틱 필터링
+            if (tree != null && tree.has("tree")) {
+                for (JsonNode node : tree.get("tree")) {
+                    String path = node.path("path").asText();
+                    if (path == null) continue;
+                    String lowerPath = path.toLowerCase();
+                    String fileName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+                    
+                    if (path.endsWith(".sql") || path.endsWith(".prisma")) {
+                        paths.add(path);
+                    } else if (path.endsWith(".java")) {
+                        // 명시적인 도메인 폴더에 있거나
+                        if (lowerPath.contains("domain") || lowerPath.contains("entity") || lowerPath.contains("model") || lowerPath.contains("dto")) {
+                            paths.add(path);
+                        } 
+                        // 이름이 대문자로 시작하면서 특정 키워드로 끝나지 않는 순수 객체(POJO) 형태일 경우
+                        else if (fileName.length() > 0 && Character.isUpperCase(fileName.charAt(0))) {
+                            if (!fileName.endsWith("Controller.java") &&
+                                !fileName.endsWith("Service.java") &&
+                                !fileName.endsWith("Repository.java") &&
+                                !fileName.endsWith("Config.java") &&
+                                !fileName.endsWith("Configuration.java") &&
+                                !fileName.endsWith("Application.java") &&
+                                !fileName.endsWith("Exception.java") &&
+                                !fileName.endsWith("Filter.java") &&
+                                !fileName.endsWith("Interceptor.java")) {
+                                paths.add(path);
+                            }
+                        }
+                    }
+                }
+            }
+            log.info("Github API에서 찾은 추가 POJO/도메인 파일 개수: {}", paths.size());
+        } catch (Exception e) {
+            log.error("GitHub Tree fetch 중 에러 발생", e);
+        }
+        return paths;
     }
 }
 

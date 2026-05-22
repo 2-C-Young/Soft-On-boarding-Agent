@@ -218,21 +218,34 @@ public class SchemaParserService {
         }
 
         // ============================================
-        // 4. Java JPA Entity 파싱 로직
+        // 4. Java Class 파싱 로직 (JPA & Firebase & 일반 POJO 지원)
         // ============================================
         String[] files = fileContents.split("--- File: ");
         for (String fileContent : files) {
-            if (!fileContent.contains("@Entity")) continue;
+            // Spring Bean 클래스나 설정 클래스 등은 파싱 제외
+            if (fileContent.contains("@RestController") || 
+                fileContent.contains("@Service") || 
+                fileContent.contains("@Repository") || 
+                fileContent.contains("@Component") ||
+                fileContent.contains("@Configuration")) {
+                continue;
+            }
 
             Pattern classPattern = Pattern.compile("public\\s+class\\s+(\\w+)");
             Matcher classMatcher = classPattern.matcher(fileContent);
             if (classMatcher.find()) {
                 String className = classMatcher.group(1);
+                
+                // Controller, Service 등으로 끝나는 이름이면 안전하게 제외
+                if (className.endsWith("Controller") || className.endsWith("Service") || 
+                    className.endsWith("Repository") || className.endsWith("Config")) {
+                    continue;
+                }
                 ParsedTable table = new ParsedTable();
                 table.name = className;
 
-                // 필드 파싱: private Type fieldName;
-                Pattern fieldPattern = Pattern.compile("private\\s+([\\w<>]+)\\s+(\\w+)\\s*;");
+                // 필드 파싱: 접근제어자 Type fieldName [= 초기화];
+                Pattern fieldPattern = Pattern.compile("(?:private|public|protected)\\s+([\\w<>,\\[\\]]+)\\s+(\\w+)\\s*(?:=|;)");
                 Matcher fieldMatcher = fieldPattern.matcher(fileContent);
                 while (fieldMatcher.find()) {
                     String type = fieldMatcher.group(1);
@@ -397,6 +410,10 @@ public class SchemaParserService {
         Map<String, Object> result = new HashMap<>();
         result.put("nodes", nodes);
         result.put("edges", edges);
+        
+        if (nodes.isEmpty()) {
+            log.warn("스키마 분석 결과 추출된 테이블 노드가 없습니다. 정규식 매칭 실패 또는 대상 파일이 유효하지 않을 수 있습니다.");
+        }
         
         try {
             return objectMapper.writeValueAsString(result);
