@@ -34,7 +34,7 @@ export function LoginPage() {
     const verifyAndRedirect = async (authToken: string) => {
       try {
         const userProfile = await userApi.getMe(authToken);
-        login(authToken, { teamCode: userProfile.teamCode });
+        login(authToken, { teamCode: userProfile.teamCode, spaceId: null, isAdmin: false });
         
         if (userProfile.teamCode) {
           // 이미 팀이 있으면 profile도 조회해서 spaceId까지 저장

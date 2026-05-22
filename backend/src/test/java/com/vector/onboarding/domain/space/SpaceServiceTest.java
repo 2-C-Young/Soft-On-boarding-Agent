@@ -63,7 +63,7 @@ class SpaceServiceTest {
     void createSpace_성공() {
         // given
         Long userId = 1L;
-        CreateSpaceRequestDto dto = new CreateSpaceRequestDto("My Team", "https://github.com/test/repo");
+        CreateSpaceRequestDto dto = new CreateSpaceRequestDto("My Team", "https://github.com/test/repo", "DEVELOPER");
 
         Space savedSpace = Space.builder()
                 .name("My Team")
@@ -97,7 +97,7 @@ class SpaceServiceTest {
     void createSpace_teamCode중복재시도() {
         // given
         Long userId = 1L;
-        CreateSpaceRequestDto dto = new CreateSpaceRequestDto("My Team", "https://github.com/test/repo");
+        CreateSpaceRequestDto dto = new CreateSpaceRequestDto("My Team", "https://github.com/test/repo", "DEVELOPER");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         // 첫 번째 코드는 중복, 두 번째부터 성공
@@ -154,7 +154,7 @@ class SpaceServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
         // when
-        spaceService.joinSpace(userId, teamCode);
+        spaceService.joinSpace(userId, teamCode, "DEVELOPER");
 
         // then
         verify(spaceMemberRepository).save(argThat(member ->
@@ -177,7 +177,7 @@ class SpaceServiceTest {
         // when & then
         SpaceNotFoundException exception = assertThrows(
                 SpaceNotFoundException.class,
-                () -> spaceService.joinSpace(userId, invalidCode)
+                () -> spaceService.joinSpace(userId, invalidCode, "DEVELOPER")
         );
 
         assertNotNull(exception.getMessage());

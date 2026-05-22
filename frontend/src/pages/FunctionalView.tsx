@@ -53,7 +53,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     if (node.type === 'domainNode') { width = 240; height = 90; }
     if (node.type === 'serviceNode') { width = 220; height = 80; }
     if (node.type === 'methodNode') { width = 180; height = 60; }
-    
+
     node.position = {
       x: nodeWithPosition.x - width / 2,
       y: nodeWithPosition.y - height / 2,
@@ -67,17 +67,17 @@ function FunctionalViewContent() {
   const spaceId = useAuthStore((state) => state.user?.spaceId);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  
+
   // Raw data from API
   const [rawNodes, setRawNodes] = useState<any[]>([]);
   const [rawEdges, setRawEdges] = useState<any[]>([]);
-  
+
   // Progressive Disclosure State
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   // 노드 클릭 시 조회한 실제 커밋 히스토리
@@ -167,7 +167,7 @@ function FunctionalViewContent() {
       }
     });
 
-    while(queue.length > 0) {
+    while (queue.length > 0) {
       const parentId = queue.shift()!;
       rawNodes.forEach(n => {
         if (n.parentId === parentId) {

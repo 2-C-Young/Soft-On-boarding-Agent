@@ -13,6 +13,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { User, ShoppingCart, FileText, Database, Table as TableIcon } from 'lucide-react';
+import dagre from 'dagre';
+import { useAuthStore } from '../store/authStore';
 
 const iconMap: Record<string, any> = {
   User: User,
@@ -98,7 +100,43 @@ const CustomEdge = ({
   );
 };
 
+const getLayoutedElements = (nodes: any[], edges: any[]) => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  
+  // TB: Top to Bottom (수직 레이아웃), 노드와 랭크(계층) 간격 설정
+  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120, align: 'UL' });
 
+  nodes.forEach((node) => {
+    const width = 288; // w-72는 288px
+    const columnsCount = node.data?.columns?.length || 0;
+    const height = 70 + columnsCount * 32; // 헤더 영역 + 컬럼 행 높이 합산
+    dagreGraph.setNode(node.id, { width, height });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    const width = 288;
+    const columnsCount = node.data?.columns?.length || 0;
+    const height = 70 + columnsCount * 32;
+    
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - width / 2,
+        y: nodeWithPosition.y - height / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
 
 export function DataView() {
   const nodeTypes = useMemo(() => ({ tableNode: TableNode }), []);
@@ -107,21 +145,36 @@ export function DataView() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+  const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
+
   useEffect(() => {
     const fetchSchemaData = async () => {
+      if (!user?.spaceId || !token) return;
+
       try {
-        // 하드코딩된 임시 리포지토리 URL (.env.example에 있던 TOP250movie_douban으로 변경)
-        const repositoryUrl = "TOP250movie_douban";
         const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-        const response = await axios.get(`${API_BASE}/api/v1/data-view/schema?repositoryUrl=${repositoryUrl}`);
+        const response = await axios.get(
+          `${API_BASE}/api/spaces/${user.spaceId}/data-view/schema`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
 
         if (response.data) {
-          if (response.data.nodes && response.data.nodes.length > 0) {
-            setNodes(response.data.nodes);
-          }
-          if (response.data.edges) {
-            setEdges(response.data.edges);
+          const rawNodes = response.data.nodes || [];
+          const rawEdges = response.data.edges || [];
+          
+          if (rawNodes.length > 0) {
+            const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(rawNodes, rawEdges);
+            setNodes(layoutedNodes);
+            setEdges(layoutedEdges);
+          } else {
+            setNodes([]);
+            setEdges([]);
           }
         }
       } catch (error) {
@@ -130,7 +183,7 @@ export function DataView() {
     };
 
     fetchSchemaData();
-  }, []);
+  }, [user?.spaceId, token, setNodes, setEdges]);
 
   return (
     <div className="w-full h-full relative overflow-hidden flex">

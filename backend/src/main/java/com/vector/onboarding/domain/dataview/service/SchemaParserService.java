@@ -217,6 +217,52 @@ public class SchemaParserService {
             }
         }
 
+        // ============================================
+        // 4. Java JPA Entity 파싱 로직
+        // ============================================
+        String[] files = fileContents.split("--- File: ");
+        for (String fileContent : files) {
+            if (!fileContent.contains("@Entity")) continue;
+
+            Pattern classPattern = Pattern.compile("public\\s+class\\s+(\\w+)");
+            Matcher classMatcher = classPattern.matcher(fileContent);
+            if (classMatcher.find()) {
+                String className = classMatcher.group(1);
+                ParsedTable table = new ParsedTable();
+                table.name = className;
+
+                // 필드 파싱: private Type fieldName;
+                Pattern fieldPattern = Pattern.compile("private\\s+([\\w<>]+)\\s+(\\w+)\\s*;");
+                Matcher fieldMatcher = fieldPattern.matcher(fileContent);
+                while (fieldMatcher.find()) {
+                    String type = fieldMatcher.group(1);
+                    String name = fieldMatcher.group(2);
+
+                    Map<String, String> col = new HashMap<>();
+                    col.put("name", name);
+                    
+                    if (name.equalsIgnoreCase("id")) {
+                        col.put("type", type + " (PK)");
+                    } else if (fileContent.contains("@ManyToOne") && name.toLowerCase().endsWith("id")) {
+                         col.put("type", type + " (FK)");
+                    } else {
+                        col.put("type", type);
+                    }
+                    table.columns.add(col);
+                    
+                    // List<> 등 컬렉션이면 자식 관계로 추가
+                    if (type.startsWith("List<") || type.startsWith("Set<")) {
+                        String childType = type.substring(type.indexOf("<") + 1, type.indexOf(">")).toLowerCase();
+                        table.children.add(childType);
+                    } else if (fileContent.contains("@ManyToOne") && !type.equals("Long") && !type.equals("String") && !type.equals("Integer")) {
+                        // 다른 엔티티를 직접 참조하는 경우
+                        table.parents.add(type.toLowerCase());
+                    }
+                }
+                tables.put(className.toLowerCase(), table);
+            }
+        }
+
 
         // 유효하지 않은 테이블 제거: source 컬럼만 3개 초과이고 데이터 컬럼이 없는 경우 (stopwords 같은 유틸 테이블)
         tables.entrySet().removeIf(entry -> {

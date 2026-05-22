@@ -103,6 +103,7 @@ export const spaceApi = {
     });
 
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || '팀 탈퇴에 실패했습니다.');
     }
   },
@@ -180,8 +181,8 @@ export const spaceApi = {
     taskId: number,
     status: BoardTaskStatus
   ): Promise<BoardTaskDto> => {
-    const response = await fetch(
-      `${API_BASE_URL}/api/spaces/${teamCode}/tasks/${taskId}/status`,
+    const response = await apiFetch(
+      `/api/spaces/${teamCode}/tasks/${taskId}/status`,
       {
         method: 'PATCH',
         body: JSON.stringify({ status }),

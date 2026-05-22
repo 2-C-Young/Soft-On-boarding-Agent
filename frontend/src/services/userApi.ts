@@ -24,6 +24,7 @@ export interface UserProfileResponse {
   userEmail: string | null;
   role: string;
   teamInfo: {
+    spaceId: number;
     teamName: string;
     teamCode: string;
     repoUrl: string;

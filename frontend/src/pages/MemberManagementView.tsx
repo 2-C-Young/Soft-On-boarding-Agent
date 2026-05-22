@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { spaceApi, type MemberResponse } from '../services/spaceApi';
 import { Users, Shield, UserMinus, AlertTriangle, CheckCircle2 } from 'lucide-react';
@@ -13,11 +13,6 @@ const mockMembers: MemberResponse[] = [
 
 export function MemberManagementView() {
   const spaceId = useAuthStore((state) => state.user?.spaceId);
-  const currentUserId = useAuthStore((state) => {
-    // 임시로 token 파싱해서 userId 가져온다고 가정 (실제 구현에 맞게 조정 필요)
-    // 여기서는 MOCK이나 API 응답에서 내 권한을 알기 위해 본인 여부 확인용으로 쓰임
-    return null; // 본인 추방 방지는 백엔드에서 주로 처리하므로 UI 방어용
-  });
 
   const [members, setMembers] = useState<MemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
