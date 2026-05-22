@@ -26,7 +26,7 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(@Value("${app.jwt.secret}") String secretKey,
                             @Value("${app.jwt.expiration-time}") long expirationTime) {
-        byte[] keyBytes = io.jsonwebtoken.io.Decoders.BASE64.decode(secretKey);
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.expirationTime = expirationTime;
     }
