@@ -172,7 +172,7 @@ def analyze_functional_view(repo_name, files_content_dict):
         combined_content += f"\n\n--- FILE: {file_path} ---\n{content}"
         
     response = call_gemini_with_retry(
-        model_name='gemini-3.5-pro',
+        model_name='gemini-3.1-pro-preview',
         contents=f"레포지토리: {repo_name}\n\n파일 내용 모음:{combined_content}",
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -297,7 +297,7 @@ def analyze_interface_view(repo_name, files_content_str):
     """
     
     response = call_gemini_with_retry(
-        model_name='gemini-3.5-pro',
+        model_name='gemini-3.1-pro-preview',
         contents=f"레포지토리: {repo_name}\n\n파일 내용들:\n{files_content_str}",
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -557,7 +557,7 @@ def analyze_process_view(repo_name, files_content_str):
     """
     
     response = client.models.generate_content(
-        model='gemini-3.5-pro',
+        model='gemini-3.1-pro-preview',
         contents=f"레포지토리: {repo_name}\n\n파일 내용들:\n{files_content_str}",
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
