@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import axios from 'axios';
 import ReactFlow, {
   Background,
@@ -235,6 +235,7 @@ export function DataView() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
@@ -243,6 +244,7 @@ export function DataView() {
     const fetchSchemaData = async () => {
       if (!user?.spaceId || !token) return;
 
+      setIsLoading(true);
       try {
         const API_BASE = import.meta.env.VITE_API_BASE_URL 
           ? import.meta.env.VITE_API_BASE_URL 
@@ -272,6 +274,8 @@ export function DataView() {
         }
       } catch (error) {
         console.error("백엔드 API 호출 실패, 기본 더미 데이터를 유지합니다.", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -282,6 +286,13 @@ export function DataView() {
     <div className="w-full h-full relative overflow-hidden flex">
       {/* Main Diagram Area with React Flow */}
       <div className="flex-1 relative w-full h-full">
+        {isLoading && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#FAFAFA]/80 backdrop-blur-sm">
+            <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-4"></div>
+            <p className="text-sm font-medium text-gray-900">데이터 스키마를 불러오고 있습니다...</p>
+            <p className="text-xs text-gray-500 mt-2">프로젝트 크기에 따라 약간의 시간이 소요될 수 있습니다.</p>
+          </div>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
