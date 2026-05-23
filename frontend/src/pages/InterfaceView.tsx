@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { 
   Folder, FileCode2, Palette, Box, Search,
-  ChevronDown, ChevronRight, BookOpen, GitCommit, Clock
+  ChevronDown, ChevronRight, BookOpen
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { interfaceApi } from '../services/interfaceApi';
-import type { InterfaceViewDto, CommitHistoryDto } from '../services/interfaceApi';
+import type { InterfaceViewDto } from '../services/interfaceApi';
 
 // Custom FigmaIcon inline component to avoid old lucide-react export issues
 const FigmaIcon = ({ className }: { className?: string }) => (
@@ -59,11 +59,19 @@ const ColorSwatch = ({ name, hex, borderClass = 'border-gray-200' }: { name: str
   );
 };
 
+const getFigmaEmbedUrl = (url: string) => {
+  if (!url || !url.startsWith('http')) return '';
+  if (url.includes('figma.com/embed')) return url;
+  return `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(url)}`;
+};
+
 export function InterfaceView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
   const [componentsData, setComponentsData] = useState<InterfaceViewDto[]>([]);
-  const [commitHistory, setCommitHistory] = useState<CommitHistoryDto[]>([]);
+  const [activeTab, setActiveTab] = useState<'code' | 'figma' | 'storybook'>('code');
+  const [figmaUrl, setFigmaUrl] = useState('');
+  const [storybookUrl, setStorybookUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const { user } = useAuthStore();
@@ -71,13 +79,9 @@ export function InterfaceView() {
   useEffect(() => {
     if (user?.spaceId) {
       setIsLoading(true);
-      Promise.all([
-        interfaceApi.getInterfaceView(user.spaceId).catch(err => { console.error("Interface Error:", err); return []; }),
-        interfaceApi.getCommitHistory(user.spaceId).catch(err => { console.error("Commit Error:", err); return []; })
-      ])
-      .then(([interfaceData, commitData]) => {
+      interfaceApi.getInterfaceView(user.spaceId).catch(err => { console.error("Interface Error:", err); return []; })
+      .then((interfaceData) => {
         setComponentsData(interfaceData || []);
-        setCommitHistory(commitData || []);
       })
       .finally(() => setIsLoading(false));
     }
@@ -168,13 +172,7 @@ export function InterfaceView() {
         return null;
       }).filter(Boolean) as { name: string, hex: string }[];
     }
-    // Fallback
-    return [
-      { name: "Background", hex: "#FAFAFA" },
-      { name: "Surface", hex: "#FFFFFF" },
-      { name: "Primary Text", hex: "#111827" },
-      { name: "Border", hex: "#E5E7EB" },
-    ];
+    return [];
   };
 
   const getParsedTypography = () => {
@@ -195,12 +193,7 @@ export function InterfaceView() {
         return null;
       }).filter(Boolean) as { style: string, size: string, weight: string }[];
     }
-    // Fallback
-    return [
-      { style: "H1", size: "2rem", weight: "700" },
-      { style: "Body", size: "0.875rem", weight: "400" },
-      { style: "Caption", size: "0.75rem", weight: "400" },
-    ];
+    return [];
   };
 
   const swatches = getParsedSwatches();
@@ -221,11 +214,21 @@ export function InterfaceView() {
                 Screen-Code Mapping (DB)
               </h3>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-gray-600 bg-[#FAFAFA] border border-gray-200 rounded-[4px] hover:text-gray-900 hover:border-gray-300 transition-colors shadow-sm">
-                  <FigmaIcon className="w-3 h-3 text-pink-500" />
-                  Figma Linked
+                <button 
+                  onClick={() => setActiveTab('code')}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-[4px] transition-colors shadow-sm border ${activeTab === 'code' ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#FAFAFA] border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'}`}>
+                  <Folder className="w-3 h-3 text-gray-500" />
+                  Code
                 </button>
-                <button className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-gray-600 bg-[#FAFAFA] border border-gray-200 rounded-[4px] hover:text-gray-900 hover:border-gray-300 transition-colors shadow-sm">
+                <button 
+                  onClick={() => setActiveTab('figma')}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-[4px] transition-colors shadow-sm border ${activeTab === 'figma' ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#FAFAFA] border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'}`}>
+                  <FigmaIcon className="w-3 h-3 text-pink-500" />
+                  Figma
+                </button>
+                <button 
+                  onClick={() => setActiveTab('storybook')}
+                  className={`flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-[4px] transition-colors shadow-sm border ${activeTab === 'storybook' ? 'bg-white border-gray-300 text-gray-900' : 'bg-[#FAFAFA] border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300'}`}>
                   <BookOpen className="w-3 h-3 text-blue-500" />
                   Storybook
                 </button>
@@ -233,14 +236,52 @@ export function InterfaceView() {
             </div>
             
             <div className="p-5 flex-1 text-[11px] text-gray-500 font-mono flex flex-col gap-4 overflow-y-auto bg-[#FAFAFA]">
-              {isLoading ? (
-                <div className="text-center py-4">Loading data...</div>
-              ) : componentsData.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                  {renderTree(fileTree)}
+              {activeTab === 'code' && (
+                isLoading ? (
+                  <div className="text-center py-4">Loading data...</div>
+                ) : componentsData.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {renderTree(fileTree)}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">No file structure available.</div>
+                )
+              )}
+              {activeTab === 'figma' && (
+                <div className="flex flex-col gap-3 h-full">
+                  <input 
+                    type="text" 
+                    placeholder="Paste Figma Embed URL here..."
+                    className="w-full px-3 py-2 text-[11px] bg-white border border-gray-200 rounded-[4px] focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 font-sans shadow-sm"
+                    value={figmaUrl}
+                    onChange={(e) => setFigmaUrl(e.target.value)}
+                  />
+                  {figmaUrl ? (
+                    <iframe className="w-full h-[300px] border border-gray-200 rounded-[4px] bg-white" src={getFigmaEmbedUrl(figmaUrl)} allowFullScreen></iframe>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center border border-dashed border-gray-300 rounded-[4px] bg-gray-50 text-gray-400 min-h-[250px]">
+                      No Figma URL provided.
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-4">No file structure available.</div>
+              )}
+              {activeTab === 'storybook' && (
+                <div className="flex flex-col gap-3 h-full">
+                  <input 
+                    type="text" 
+                    placeholder="Paste Storybook URL here..."
+                    className="w-full px-3 py-2 text-[11px] bg-white border border-gray-200 rounded-[4px] focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 font-sans shadow-sm"
+                    value={storybookUrl}
+                    onChange={(e) => setStorybookUrl(e.target.value)}
+                  />
+                  {storybookUrl ? (
+                    <iframe className="w-full h-[300px] border border-gray-200 rounded-[4px] bg-white" src={storybookUrl} title="Storybook"></iframe>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center border border-dashed border-gray-300 rounded-[4px] bg-gray-50 text-gray-400 min-h-[250px]">
+                      No Storybook URL provided.
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -255,76 +296,61 @@ export function InterfaceView() {
               </h3>
             </div>
             
-            <div className="p-4 flex flex-col gap-5 border-b border-gray-200 bg-[#FAFAFA]">
+            <div className="p-4 flex flex-col gap-5 bg-[#FAFAFA] flex-1">
               <div>
                 <h4 className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2.5">Colors</h4>
-                <div className="grid grid-cols-4 gap-3">
-                  {swatches.map((swatch, idx) => {
-                    return (
-                      <ColorSwatch 
-                        key={idx} 
-                        name={swatch.name} 
-                        hex={swatch.hex} 
-                        borderClass="border-gray-200" 
-                      />
-                    );
-                  })}
-                </div>
+                {swatches.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-3">
+                    {swatches.map((swatch, idx) => {
+                      return (
+                        <ColorSwatch 
+                          key={idx} 
+                          name={swatch.name} 
+                          hex={swatch.hex} 
+                          borderClass="border-gray-200" 
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-gray-400 bg-white border border-dashed border-gray-200 p-3 rounded text-center">
+                    No color tokens found in DB.
+                  </div>
+                )}
               </div>
 
               <div>
                 <h4 className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-2.5">Typography</h4>
-                <div className="border border-gray-200 rounded-[4px] overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-[10px]">
-                    <thead className="bg-white border-b border-gray-200 text-gray-600">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Style</th>
-                        <th className="px-3 py-2 font-semibold">Size</th>
-                        <th className="px-3 py-2 font-semibold">Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 text-gray-700 bg-[#FAFAFA]">
-                      {typography.map((typo, idx) => (
-                        <tr key={idx}>
-                          <td className="px-3 py-2 font-medium text-gray-800">{typo.style}</td>
-                          <td className="px-3 py-2 font-mono text-[9px] text-gray-500">{typo.size}</td>
-                          <td className="px-3 py-2">{typo.weight}</td>
+                {typography.length > 0 ? (
+                  <div className="border border-gray-200 rounded-[4px] overflow-hidden shadow-sm">
+                    <table className="w-full text-left text-[10px]">
+                      <thead className="bg-white border-b border-gray-200 text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Style</th>
+                          <th className="px-3 py-2 font-semibold">Size</th>
+                          <th className="px-3 py-2 font-semibold">Weight</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700 bg-[#FAFAFA]">
+                        {typography.map((typo, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2 font-medium text-gray-800">{typo.style}</td>
+                            <td className="px-3 py-2 font-mono text-[9px] text-gray-500">{typo.size}</td>
+                            <td className="px-3 py-2">{typo.weight}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-gray-400 bg-white border border-dashed border-gray-200 p-3 rounded text-center">
+                    No typography tokens found in DB.
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* History Section */}
-            <div className="px-4 py-3 bg-white border-b border-gray-200">
-              <h3 className="text-xs font-semibold flex items-center gap-2 text-gray-800">
-                <Clock className="w-3.5 h-3.5 text-gray-500" />
-                UI Change History
-              </h3>
-            </div>
-            <div className="p-4 flex-1 flex flex-col gap-3 overflow-y-auto bg-[#FAFAFA] max-h-[150px]">
-              {commitHistory.length > 0 ? (
-                commitHistory.map((commit) => (
-                  <div key={commit.id} className="flex gap-3 items-start group cursor-pointer" title={commit.message}>
-                    <div className="mt-0.5">
-                      <GitCommit className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 transition-colors" />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[11px] text-gray-700 group-hover:text-gray-900 transition-colors leading-tight font-medium line-clamp-1">
-                        {commit.message}
-                      </span>
-                      <span className="text-[9px] text-gray-500 font-mono">
-                        {commit.author} • {commit.commitDate}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-[10px] text-gray-500 py-4">No commit history available.</div>
-              )}
-            </div>
+
           </div>
         </div>
 
